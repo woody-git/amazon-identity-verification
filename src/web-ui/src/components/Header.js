@@ -6,6 +6,8 @@ import { retryWrapper } from "../utils";
 
 import AddUserModal from "./AddUserModal";
 import RekognitionButton from "./RekognitionButton";
+import IDRegistrationButton from "./IdentityRegistrationButton";
+import IDVerificationButton from "./IdentityVerificationButton";
 
 import "./Header.css";
 
@@ -46,11 +48,14 @@ const Header = ({ addUser, readyToStream, signedIn, toggleRekognition }) => {
             )}
             {userEmail && (
               <>
-                <RekognitionButton
+                <IDRegistrationButton
                   onClick={toggleRekognition}
                   enabled={readyToStream}
                 />
-                <AddUserModal onSave={addUser} />
+                <IDVerificationButton
+                  onClick={toggleRekognition}
+                  enabled={readyToStream}
+                />                
                 <Button onClick={signOut} variant="warning" size="sm">
                   Sign Out
                 </Button>

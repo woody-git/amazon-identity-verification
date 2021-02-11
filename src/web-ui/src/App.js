@@ -8,6 +8,8 @@ import gateway from "./utils/gateway";
 
 import CameraHelp from "./components/CameraHelp";
 import EngagementSummary from "./components/EngagementsSummary";
+import IDRegistrationSummary from "./components/IdentityRegistrationSummary";
+import IDVerificationSummary from "./components/IdentityVerificationSummary";
 import Header from "./components/Header";
 import SettingsHelp from "./components/SettingsHelp";
 
@@ -87,7 +89,7 @@ const App = () => {
               />
             </Col>
             <Col md={4} sm={6}>
-              <EngagementSummary testResults={testResults} />
+              <IDRegistrationSummary testResults={testResults} />
             </Col>
           </Row>
         </>

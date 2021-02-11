@@ -11,6 +11,7 @@ const {
 
 const rekognition = new AWS.Rekognition({ region: REGION });
 const dynamo = new AWS.DynamoDB({ region: REGION });
+const textract = new AWS.Textract({region: REGION});
 
 const respond = (statusCode, response) => ({
   statusCode,
@@ -213,15 +214,72 @@ const searchForIndexedFaces = async (imageBytes) => {
   return faceMatchTest;
 };
 
+
+const extractDocumentInformation = async (imageBytes) => {
+/* 
+  Read information from ID picture using Textract.
+*/
+  const returnedDocumentInformation = { TestName: "ID Information" };
+  //const objectsOfInterestLabels = OBJECTS_OF_INTEREST_LABELS.trim().split(",");
+  const objectsOfInterestTest = { TestName: "Objects of Interest" };
+  const peopleTest = { TestName: "Person Detection" };
+
+  /* Promise for Rekognition Object and Scene detection - DetectObjects API*/
+  const detectLabels = () =>
+    rekognition
+      .detectLabels({
+        Image: { Bytes: imageBytes },
+        MinConfidence: MIN_CONFIDENCE,
+      })
+      .promise();
+
+  /* Promise for Textract Sync document Analysis with key-value extraction*/
+  const extractDocumentInfo = () =>
+    textract
+      .analyzeDocument({
+        Document: {Bytes: imageBytes},
+        FeaturesTypes: ["FORM"]
+      })
+      .promise();
+
+  try {
+    
+    const labels = await detectLabels();
+    
+    const documentInfo = await extractDocumentInfo();
+
+    console.log(documentInfo);
+
+    if (documentInfo.Blocks.length > 0) {
+      returnedDocumentInformation.Success = true;
+      returnedDocumentInformation.Details = returnedDocumentInformation.Success;
+    } else{
+      returnedDocumentInformation.Success = false;
+      returnedDocumentInformation.Details = returnedDocumentInformation.Success;
+    }
+
+
+  } catch (e) {
+    console.log(e);
+
+    returnedDocumentInformation.Success = false;
+    returnedDocumentInformation.Details = returnedDocumentInformation.Success;
+    
+  }
+
+  return returnedDocumentInformation;
+}
+
 exports.processHandler = async (event) => {
   const body = JSON.parse(event.body);
   const imageBytes = Buffer.from(body.image, "base64");
 
   const result = await Promise.all([
     fetchLabels(imageBytes),
-    searchForIndexedFaces(imageBytes),
-    fetchFaces(imageBytes),
-    fetchModerationLabels(imageBytes),
+    //searchForIndexedFaces(imageBytes),
+    //fetchFaces(imageBytes),
+    //fetchModerationLabels(imageBytes),
+    extractDocumentInformation(imageBytes)
   ]);
 
   return respond(200, result.flat());
