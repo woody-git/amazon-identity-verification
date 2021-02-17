@@ -52,6 +52,7 @@ const App = () => {
   const toggleRekognition = () => {
     iterating.current = !iterating.current;
 
+    //If document is already taken, check for face coverage and not document, and go to person registration. -> register only if the document face and webcam are the same person
     if (iterating.current) {
       getSnapshot();
     } else setTestResults([]);

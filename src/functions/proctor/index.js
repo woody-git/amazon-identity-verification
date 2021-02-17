@@ -219,10 +219,10 @@ const extractDocumentInformation = async (imageBytes) => {
 /* 
   Read information from ID picture using Textract.
 */
-  const returnedDocumentInformation = { TestName: "ID Information" };
+  const returnedDocumentInformationName = { TestName: "ID Document Name" };
   //const objectsOfInterestLabels = OBJECTS_OF_INTEREST_LABELS.trim().split(",");
-  const objectsOfInterestTest = { TestName: "Objects of Interest" };
-  const peopleTest = { TestName: "Person Detection" };
+  const returnedDocumentInformationDate = { TestName: "ID Document Expiring Date" };
+  const personalDocumentDetect = { TestName: "Personal ID Document" };
 
   /* Promise for Rekognition Object and Scene detection - DetectObjects API*/
   const detectLabels = () =>
@@ -238,36 +238,58 @@ const extractDocumentInformation = async (imageBytes) => {
     textract
       .analyzeDocument({
         Document: {Bytes: imageBytes},
-        FeaturesTypes: ["FORM"]
+        FeatureTypes: ["FORMS"]
       })
       .promise();
 
   try {
     
+    //Calling object detection
     const labels = await detectLabels();
     
-    const documentInfo = await extractDocumentInfo();
+    //Looking for documents
+    const personalID = labels.Labels.find((x) => x.Name === "Passport");
+    const personalIDDetected = personalID ? personalID.Instances.length : 0;
+    personalDocumentDetect.Success = personalIDDetected === 1;
+    personalDocumentDetect.Details = personalIDDetected;
 
-    console.log(documentInfo);
+    if (personalIDDetected > 0) {
+    
+      //calling Textract
+      const documentInfo = await extractDocumentInfo();  
+    
+      console.log(documentInfo);
 
-    if (documentInfo.Blocks.length > 0) {
-      returnedDocumentInformation.Success = true;
-      returnedDocumentInformation.Details = returnedDocumentInformation.Success;
-    } else{
-      returnedDocumentInformation.Success = false;
-      returnedDocumentInformation.Details = returnedDocumentInformation.Success;
+      if (documentInfo.Blocks.length > 0) {
+        returnedDocumentInformationName.Success = true;
+        returnedDocumentInformationName.Details = "Woody Borraccino";
+
+        returnedDocumentInformationDate.Success = true;
+        returnedDocumentInformationDate.Details = '29.05.2028';
+      } else{
+        returnedDocumentInformationName.Success = false;
+        returnedDocumentInformationName.Details = "";
+
+        returnedDocumentInformationDate.Success = false;
+        returnedDocumentInformationDate.Details = '';
+      }
     }
-
-
+  
   } catch (e) {
     console.log(e);
 
-    returnedDocumentInformation.Success = false;
-    returnedDocumentInformation.Details = returnedDocumentInformation.Success;
+    personalDocumentDetect.Success = false;
+    personalDocumentDetect.Details = "";
+
+    returnedDocumentInformationDate.Success = false;
+    returnedDocumentInformationDate.Details = '';
+
+    returnedDocumentInformationName.Success = false;
+    returnedDocumentInformationName.Details = returnedDocumentInformationName.Success;
     
   }
 
-  return returnedDocumentInformation;
+  return [personalDocumentDetect, returnedDocumentInformationName, returnedDocumentInformationDate];
 }
 
 exports.processHandler = async (event) => {
@@ -275,7 +297,7 @@ exports.processHandler = async (event) => {
   const imageBytes = Buffer.from(body.image, "base64");
 
   const result = await Promise.all([
-    fetchLabels(imageBytes),
+    //fetchLabels(imageBytes),
     //searchForIndexedFaces(imageBytes),
     //fetchFaces(imageBytes),
     //fetchModerationLabels(imageBytes),

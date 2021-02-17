@@ -167,10 +167,10 @@ Resources:
         AllowAdminCreateUserOnly: true
         InviteMessageTemplate:
           EmailMessage: !Sub
-            - 'Your Amazon Rekognition Virtual Proctor username is {username} and the temporary password is {####}<br><br>Click here to access the web interface: <a href="${UIUrl}">${UIUrl}</a>'
+            - 'Your Amazon Identity Verification Platform username is {username} and the temporary password is {####}<br><br>Click here to access the web interface: <a href="${UIUrl}">${UIUrl}</a>'
             - { UIUrl: !If [WithCloudFront, !Sub 'https://${CloudFrontDistribution.DomainName}', !Sub 'https://${WebUIBucket.RegionalDomainName}/index.html'] }
-          EmailSubject: 'Your temporary password for Amazon Rekognition Virtual Proctor'
-          SMSMessage: 'Your Amazon Rekognition Virtual Proctor username is {username} and the temporary password is {####}'
+          EmailSubject: 'Your temporary password for Amazon Rekognition Identity Verification'
+          SMSMessage: 'Your Amazon Rekognition Identity Verification username is {username} and the temporary password is {####}'
       AutoVerifiedAttributes:
         - email
       Policies:
@@ -253,13 +253,14 @@ Resources:
         - RekognitionReadPolicy:
             CollectionId: !Ref ResourcePrefix
         - RekognitionDetectOnlyPolicy: {}
+        - TextractDetectAnalyzePolicy: {}
 
   LambdaSetup:
     Type: AWS::Serverless::Function
     Properties:
       Handler: index.handler
       CodeUri: ../functions/setup/
-      Description: Custom Lambda resource for the Virtual Proctor Cloudformation Stack
+      Description: Custom Lambda resource for the Identity Verification Cloudformation Stack
       Environment:
         Variables:
           API_GATEWAY: !Sub https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/
@@ -314,6 +315,19 @@ Resources:
           AttributeName: ExternalImageId
           KeyType: HASH
       BillingMode: PAY_PER_REQUEST
+
+  DocumentTable: 
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions: 
+        - 
+          AttributeName: ExternalDocumentId
+          AttributeType: S
+      KeySchema: 
+        - 
+          AttributeName: ExternalDocumentId
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST    
 
   CloudFrontOriginAccessIdentity:
     Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
