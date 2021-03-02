@@ -1,6 +1,6 @@
 ## Identity Verification using AWS services
 
-MIND: This demo is not production ready. Is just an example showing identity verification worflow leveraging Amazon Rekognition
+MIND: This demo is not production ready. Is just an example showing identity verification workflow leveraging Amazon Rekognition
 
 This demo shows how to leverage on Amazon Rekognition in order to aquire an identification document (ID document, Passport, Driving License), reading avalues from the document 
 and verify the face in the document with the owner at a browser webcam.
