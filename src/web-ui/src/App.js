@@ -12,25 +12,75 @@ import IDRegistrationSummary from "./components/IdentityRegistrationSummary";
 import IDVerificationSummary from "./components/IdentityVerificationSummary";
 import Header from "./components/Header";
 import SettingsHelp from "./components/SettingsHelp";
+import { loadingSceneName } from "aws-amplify";
 
 const App = () => {
   const [authState, setAuthState] = useState(undefined);
   const [readyToStream, setReadyToStream] = useState(false);
   const [testResults, setTestResults] = useState([]);
+  const [verificationResults, setVerificationResults] = useState([]);
+  
   const iterating = useRef(false);
   const webcam = useRef(undefined);
+  const docAcquired = useRef(false);
+  const faceParams = useState(undefined);
 
   const addUser = (params) => gateway.addUser(params);
 
-  const getSnapshot = () => {
+  function sleep(milliseconds) {
+    const date = Date.now();
+    let currentDate = null;
+    do {
+      currentDate = Date.now();
+    } while (currentDate - date < milliseconds);
+  }
+
+  /*  Call Lambda function for document acquisition by processing live webcam images. 
+      when document information are retieved correctly (first element has success = true)
+      the interface is mantained in state with document information and face analysis is triggered 
+      with the function (getFaceSnapshot) for face match on docID and face on camera */
+  const getDocumentSnapshot = () => {
+    const image = webcam.current.getScreenshot();
+    const b64Encoded = image.split(",")[1];
+    gateway.processImage(b64Encoded).then((response) => {
+      if (response) setTestResults(response);
+      if (response[0].Success) {
+        docAcquired.current = true;
+        setTimeout(getFaceSnapshot, 300);
+      }
+      else {
+        if (iterating.current) setTimeout(getDocumentSnapshot, 300);
+        else if (!docAcquired.current) setTestResults([]);
+      }
+    });
+  };
+
+  //call Lambda function for user registration by running face match challange passing live webcam frames
+  const getFaceSnapshot = () => {
     const image = webcam.current.getScreenshot();
     const b64Encoded = image.split(",")[1];
 
-    gateway.processImage(b64Encoded).then((response) => {
-      if (response) setTestResults(response);
-      if (iterating.current) setTimeout(getSnapshot, 300);
-      else setTestResults([]);
+    faceParams.image = b64Encoded;
+    faceParams.userId = '123';
+    //TODO Add passing idUser
+
+    /* Mock verification results */
+    sleep(5000);
+    setVerificationResults([{TestName:"Face Match Verification", Success:true, Details:"Face matched with document successfully!"}]);
+    /* END Mock */
+
+    /*
+    gateway.addUser(faceParams).then((response) => {
+      alert('phase3');
+      if (response) setVerificationResults(response);
+      
+      if (!response[0].Success) {
+        alert('face not match');
+        if (iterating.current) setTimeout(getFaceSnapshot, 300);
+        else setVerificationResults([]);
+      } else {alert('face OK!');}
     });
+    */
   };
 
   const setupWebcam = (instance) => {
@@ -51,11 +101,15 @@ const App = () => {
 
   const toggleRekognition = () => {
     iterating.current = !iterating.current;
-
     //If document is already taken, check for face coverage and not document, and go to person registration. -> register only if the document face and webcam are the same person
     if (iterating.current) {
-      getSnapshot();
-    } else setTestResults([]);
+          getDocumentSnapshot();
+          //getFaceSnapshot();
+    } else {
+      setTestResults([]);
+      setVerificationResults([]);
+      docAcquired.current=false;
+    }
   };
 
   useEffect(() => {
@@ -91,6 +145,7 @@ const App = () => {
             </Col>
             <Col md={4} sm={6}>
               <IDRegistrationSummary testResults={testResults} />
+              <IDVerificationSummary verificationResults={verificationResults} />
             </Col>
           </Row>
         </>

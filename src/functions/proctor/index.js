@@ -5,13 +5,13 @@ const {
   COLLECTION_ID,
   FACES_TABLENAME,
   MIN_CONFIDENCE,
-  OBJECTS_OF_INTEREST_LABELS,
   REGION,
 } = process.env;
 
 const rekognition = new AWS.Rekognition({ region: REGION });
 const dynamo = new AWS.DynamoDB({ region: REGION });
 const textract = new AWS.Textract({region: REGION});
+const s3 = new AWS.S3({region: REGION});
 
 const respond = (statusCode, response) => ({
   statusCode,
@@ -26,201 +26,56 @@ exports.indexHandler = async (event) => {
   const ExternalImageId = uuid();
   const body = JSON.parse(event.body);
 
-  const indexFace = () =>
-    rekognition
-      .indexFaces({
-        CollectionId: COLLECTION_ID,
-        ExternalImageId,
-        Image: { Bytes: Buffer.from(body.image, "base64") },
-      })
-      .promise();
-
-  const persistMetadata = () =>
+  const faceValidate = { TestName: "Face Match Verification" };
+  
+  //getItem using userId from Dynamo . Then using Dunamo ImageURl to the docuemnt image from S3
+  const getMetadata = () =>
     dynamo
       .putItem({
         Item: {
           CollectionId: { S: COLLECTION_ID },
           ExternalImageId: { S: ExternalImageId },
-          FullName: { S: body.fullName },
+          FullName: { S: body.userId },
         },
         TableName: FACES_TABLENAME,
       })
       .promise();
 
+  const getIDDocumentFromS3 = () =>
+    s3
+      .getItem({
+        //TODO
+      })
+      .promise();
+
+   const matchFaces = () => 
+   rekognition
+      .compareFaces({
+        Image: { Bytes: imageBytes },
+        MinConfidence: MIN_CONFIDENCE,
+      })
+      .promise();
+  
+      faceValidate.Success = true;
+      faceValidate.Details = "Face matched with document successfully!";
+
   try {
-    await indexFace();
-    await persistMetadata();
-    return respond(200, { ExternalImageId });
+    //await getMetadata();
+    //await getIDDocumentFromS3();
+    //awaut matchFaces();
+    return respond(200, faceValidate.flat());
   } catch (e) {
     console.log(e);
     return respond(500, { error: e });
   }
 };
 
-const fetchFaces = async (imageBytes) => {
-  /*
-    Detect Faces
-    Uses Rekognition's DetectFaces functionality
-  */
-
-  const facesTest = {
-    TestName: "Face Detection",
-  };
-
-  const detectFaces = () =>
-    rekognition.detectFaces({ Image: { Bytes: imageBytes } }).promise();
-
-  try {
-    const faces = await detectFaces();
-    const nFaces = faces.FaceDetails.length;
-    facesTest.Success = nFaces === 1;
-    facesTest.Details = nFaces;
-  } catch (e) {
-    console.log(e);
-    facesTest.Success = false;
-    facesTest.Details = "Server error";
-  }
-  return facesTest;
-};
-
-const fetchLabels = async (imageBytes) => {
-  /*
-    Detect Objects Of Interest and number of Persons
-    Uses Rekognition's DetectLabels functionality
-  */
-
-  const objectsOfInterestLabels = OBJECTS_OF_INTEREST_LABELS.trim().split(",");
-  const objectsOfInterestTest = { TestName: "Objects of Interest" };
-  const peopleTest = { TestName: "Person Detection" };
-
-  const detectLabels = () =>
-    rekognition
-      .detectLabels({
-        Image: { Bytes: imageBytes },
-        MinConfidence: MIN_CONFIDENCE,
-      })
-      .promise();
-
-  try {
-    const labels = await detectLabels();
-
-    const people = labels.Labels.find((x) => x.Name === "Person");
-    const nPeople = people ? people.Instances.length : 0;
-    peopleTest.Success = nPeople === 1;
-    peopleTest.Details = nPeople;
-
-    const objectsOfInterest = labels.Labels.filter((x) =>
-      objectsOfInterestLabels.includes(x.Name)
-    );
-    objectsOfInterestTest.Success = objectsOfInterest.length === 0;
-    objectsOfInterestTest.Details = objectsOfInterestTest.Success
-      ? "0"
-      : objectsOfInterest
-          .map((x) => x.Name)
-          .sort()
-          .join(", ");
-  } catch (e) {
-    console.log(e);
-    objectsOfInterestTest.Success = false;
-    objectsOfInterestTest.Details = "Server error";
-    peopleTest.Success = false;
-    peopleTest.Details = "Server error";
-  }
-  return [objectsOfInterestTest, peopleTest];
-};
-
-const fetchModerationLabels = async (imageBytes) => {
-  /*
-    Detect Unsafe Content
-    Uses Rekognition's DetectModerationLabels functionality
-  */
-  const moderationLabelsTest = {
-    TestName: "Unsafe Content",
-  };
-
-  const detectModerationLabels = () =>
-    rekognition
-      .detectModerationLabels({
-        Image: { Bytes: imageBytes },
-        MinConfidence: MIN_CONFIDENCE,
-      })
-      .promise();
-
-  try {
-    const labels = await detectModerationLabels();
-    const nLabels = labels.ModerationLabels.length;
-    moderationLabelsTest.Success = nLabels === 0;
-    moderationLabelsTest.Details = moderationLabelsTest.Success
-      ? "0"
-      : labels.ModerationLabels.map((l) => l.Name)
-          .sort()
-          .join(", ");
-  } catch (e) {
-    console.log(e);
-    moderationLabelsTest.Success = false;
-    moderationLabelsTest.Details = `Server error`;
-  }
-
-  return moderationLabelsTest;
-};
-
-const searchForIndexedFaces = async (imageBytes) => {
-  /*
-    Face Matching
-
-    Uses Rekognition's SearchFacesByImage functionality 
-    to match face across the database of previously 
-    indexed faces
-  */
-
-  const faceMatchTest = {
-    TestName: "Person Recognition",
-    Success: false,
-    Details: "0",
-  };
-
-  const searchFace = () =>
-    rekognition
-      .searchFacesByImage({
-        CollectionId: COLLECTION_ID,
-        FaceMatchThreshold: MIN_CONFIDENCE,
-        MaxFaces: 1,
-        Image: { Bytes: imageBytes },
-      })
-      .promise();
-
-  const getFaceByExternalImageId = (id) =>
-    dynamo
-      .getItem({
-        TableName: FACES_TABLENAME,
-        Key: { ExternalImageId: { S: id } },
-      })
-      .promise();
-
-  try {
-    const faces = await searchFace();
-    const faceDetails = await getFaceByExternalImageId(
-      faces.FaceMatches[0].Face.ExternalImageId
-    );
-
-    if (faceDetails.Item) {
-      faceMatchTest.Success = true;
-      faceMatchTest.Details = faceDetails.Item.FullName.S;
-    }
-  } catch (e) {
-    // When 0 faces are recognized, rekognition.searchFacesByImage throws an error
-    console.log(e);
-  }
-  return faceMatchTest;
-};
-
-
 const extractDocumentInformation = async (imageBytes) => {
 /* 
   Read information from ID picture using Textract.
-*/
+*/const userId = uuid();
+
   const returnedDocumentInformationName = { TestName: "ID Document Name" };
-  //const objectsOfInterestLabels = OBJECTS_OF_INTEREST_LABELS.trim().split(",");
   const returnedDocumentInformationDate = { TestName: "ID Document Expiring Date" };
   const personalDocumentDetect = { TestName: "Personal ID Document" };
 
@@ -235,37 +90,92 @@ const extractDocumentInformation = async (imageBytes) => {
 
   /* Promise for Textract Sync document Analysis with key-value extraction*/
   const extractDocumentInfo = () =>
-    textract
-      .analyzeDocument({
-        Document: {Bytes: imageBytes},
-        FeatureTypes: ["FORMS"]
-      })
-      .promise();
+    rekognition
+      .detectText({
+        Image: { Bytes: imageBytes }
+      }).promise();
 
-  try {
+        /*
+        textract
+        .analyzeDocument({
+          Document: {Bytes: imageBytes},
+          FeatureTypes: ["FORMS", "TABLES"]
+        })
+        .promise();
+        */
+
+
+  const persistMetadata = () =>
+  dynamo
+    .putItem({
+      Item: {
+        UserId: { S: userId },
+        userInfo: { S: userId} //TO BE IMPROVED
+      },
+      TableName: FACES_TABLENAME,
+    })
+    .promise();    
+
+  const persistDocumentPicture = () =>
+  s3
+    .upload({
+      Body: imageBytes, 
+      //Bucket: COLLECTION_ID, 
+      Bucket: 'identity-verification-iddocument-storage',
+      Key: '' + uuid
+    })
+    .promise();
+
+    try {
     
     //Calling object detection
     const labels = await detectLabels();
     
     //Looking for documents
-    const personalID = labels.Labels.find((x) => x.Name === "Passport");
+    const personalID = labels.Labels.find((x) => x.Name === "Id Cards");
     const personalIDDetected = personalID ? personalID.Instances.length : 0;
+    
     personalDocumentDetect.Success = personalIDDetected === 1;
     personalDocumentDetect.Details = personalIDDetected;
 
     if (personalIDDetected > 0) {
     
-      //calling Textract
-      const documentInfo = await extractDocumentInfo();  
-    
-      console.log(documentInfo);
+      const documentInfo = await extractDocumentInfo();
 
-      if (documentInfo.Blocks.length > 0) {
-        returnedDocumentInformationName.Success = true;
-        returnedDocumentInformationName.Details = "Woody Borraccino";
+      console.log("Document Info JSON reposne: " + JSON.stringify(documentInfo));
 
-        returnedDocumentInformationDate.Success = true;
-        returnedDocumentInformationDate.Details = '29.05.2028';
+      if (documentInfo.TextDetections.length > 0) {
+        
+        /*
+        const keys = Object.keys(documentInfo.TextDetections.DetectedText);
+        const personalSurname = documentInfo.TextDetections.DetectedText[keys[keys.indexOf("COGNOME SURNAME")]+1];
+        const personalName = documentInfo.TextDetections.DetectedText[keys[keys.indexOf("CPSP")]+1];
+        */
+       // This logic must be changed based on the document type you want to read (additional conditional validation rules can be placed here).
+       const personalSurname  = documentInfo.TextDetections[5].DetectedText;
+       const personalName     = documentInfo.TextDetections[7].DetectedText;
+       const expiryDate     = documentInfo.TextDetections[18].DetectedText;
+        
+        const fullName = personalName + " " + personalSurname;
+
+        if (fullName.length > 0) { 
+          returnedDocumentInformationName.Details = personalName + " " + personalSurname;
+          returnedDocumentInformationName.Success = true;
+
+          returnedDocumentInformationDate.Success = true;
+          returnedDocumentInformationDate.Details = expiryDate;
+        }
+        else {
+          returnedDocumentInformationName.Success = false;
+          returnedDocumentInformationName.Details = "";
+
+          returnedDocumentInformationDate.Success = false;
+          returnedDocumentInformationDate.Details = '';
+        }
+
+        // const storedMetadataReponse = await persistMetadata();
+        const storedPictureResponse = await persistDocumentPicture();
+
       } else{
         returnedDocumentInformationName.Success = false;
         returnedDocumentInformationName.Details = "";
@@ -279,28 +189,27 @@ const extractDocumentInformation = async (imageBytes) => {
     console.log(e);
 
     personalDocumentDetect.Success = false;
-    personalDocumentDetect.Details = "";
+    personalDocumentDetect.Details = 0;
 
     returnedDocumentInformationDate.Success = false;
     returnedDocumentInformationDate.Details = '';
 
     returnedDocumentInformationName.Success = false;
-    returnedDocumentInformationName.Details = returnedDocumentInformationName.Success;
+    returnedDocumentInformationName.Details = '';
     
   }
 
   return [personalDocumentDetect, returnedDocumentInformationName, returnedDocumentInformationDate];
 }
 
+
+
+/*Handler for ID document analysis */
 exports.processHandler = async (event) => {
   const body = JSON.parse(event.body);
   const imageBytes = Buffer.from(body.image, "base64");
 
   const result = await Promise.all([
-    //fetchLabels(imageBytes),
-    //searchForIndexedFaces(imageBytes),
-    //fetchFaces(imageBytes),
-    //fetchModerationLabels(imageBytes),
     extractDocumentInformation(imageBytes)
   ]);
 

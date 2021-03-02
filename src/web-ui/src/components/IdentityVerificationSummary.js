@@ -3,9 +3,9 @@ import { Card } from "react-bootstrap";
 
 import Icon from "./Icon";
 
-const IdentityVerificationSummary = ({ testResults }) => (
+const IdentityVerificationSummary = ({ verificationResults }) => (
   <div className="tests-container">
-    {testResults.map((test, index) => (
+    {verificationResults.map((test, index) => (
       <Card style={{ marginTop: "20px", textAlign: "left" }} key={index}>
         <Card.Header>
           <Icon type={test.Success ? "success" : "fail"} />

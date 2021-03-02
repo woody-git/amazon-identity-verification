@@ -1,5 +1,5 @@
 {
-  "name": "amazon-rekognition-virtual-proctor",
+  "name": "amazon-rekognition-identity-verification",
   "version": "1.0.0",
   "private": true,
   "scripts": {
@@ -21,12 +21,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/aws-samples/amazon-rekognition-virtual-proctor.git"
+    "url": "git+https://github.com/aws-samples/amazon-identity-verification.git"
   },
   "bugs": {
-    "url": "https://github.com/aws-samples/amazon-rekognition-virtual-proctor/issues"
+    "url": "https://github.com/aws-samples/amazon-identity-verification/issues"
   },
-  "homepage": "https://github.com/aws-samples/amazon-rekognition-virtual-proctor#readme",
+  "homepage": "https://github.com/aws-samples/amazon-identity-verification#readme",
   "devDependencies": {
     "js-yaml": "3.13.1",
     "node-yaml": "4.0.1"

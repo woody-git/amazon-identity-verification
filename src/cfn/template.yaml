@@ -288,7 +288,7 @@ Resources:
               - s3:ListBucket
             Resource:
               - !Sub arn:aws:s3:::${WebUIBucket}
-              - !Sub arn:aws:s3:::${WebUIBucket}/*
+              - !Sub arn:aws:s3:::${WebUIBucket}/*              
           - Effect: Allow
             Action: s3:GetObject
             Resource:

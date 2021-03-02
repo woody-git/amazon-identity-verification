@@ -4,10 +4,10 @@ import { Button, Nav, Navbar } from "react-bootstrap";
 
 import { retryWrapper } from "../utils";
 
-import AddUserModal from "./AddUserModal";
-import RekognitionButton from "./RekognitionButton";
+//import AddUserModal from "./AddUserModal";
+//import RekognitionButton from "./RekognitionButton";
 import IDRegistrationButton from "./IdentityRegistrationButton";
-import IDVerificationButton from "./IdentityVerificationButton";
+//import IDVerificationButton from "./IdentityVerificationButton";
 
 import "./Header.css";
 
@@ -52,10 +52,10 @@ const Header = ({ addUser, readyToStream, signedIn, toggleRekognition }) => {
                   onClick={toggleRekognition}
                   enabled={readyToStream}
                 />
-                <IDVerificationButton
+                {/* <IDVerificationButton
                   onClick={toggleRekognition}
                   enabled={readyToStream}
-                />                
+                /> */}                
                 <Button onClick={signOut} variant="warning" size="sm">
                   Sign Out
                 </Button>
