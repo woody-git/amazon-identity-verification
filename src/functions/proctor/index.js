@@ -174,7 +174,7 @@ const extractDocumentInformation = async (imageBytes) => {
         }
 
         // const storedMetadataReponse = await persistMetadata();
-        const storedPictureResponse = await persistDocumentPicture();
+        //const storedPictureResponse = await persistDocumentPicture();
 
       } else{
         returnedDocumentInformationName.Success = false;
